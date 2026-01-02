@@ -1,4 +1,5 @@
 import os
+import constants
 import datetime
 import info_for_signature
 from cryptography import x509
@@ -35,7 +36,7 @@ def create_certificate(subject : x509.Name, issuer : x509.Name, private_key : rs
         .not_valid_before(datetime.datetime.now(datetime.timezone.utc))
         .not_valid_after(datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=info_for_signature.AMOUNT_OF_DAYS))
         .add_extension(
-            x509.SubjectAlternativeName([x509.DNSName("localhost")]),
+            x509.SubjectAlternativeName([x509.DNSName(constants.SERVER_HOST_NAME)]),
             critical=False,
         )
         .sign(private_key, hashes.SHA256())
