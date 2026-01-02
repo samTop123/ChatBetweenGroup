@@ -60,7 +60,6 @@ def create_key_and_certificate() -> None:
             )
         )
 
-    # 3. Write public key (optional, cert already contains it)
     with open(info_for_signature.SERVER_KEY_NAME_PUBLIC, "wb") as f:
         f.write(
             public_key.public_bytes(
