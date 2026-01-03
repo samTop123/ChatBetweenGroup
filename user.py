@@ -56,6 +56,9 @@ if __name__ == "__main__":
     client_secured_used = secure_client_socket(client_used)
     client_secured_used.connect((constants.IP, constants.PORT))
 
+    # Displaying the cipher information - (algorithm used for symmetric encryption, TLS version, Key length - in bits)
+    print(client_secured_used.cipher())
+
     root = Tk()
 
     # specify size of window.
