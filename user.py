@@ -79,7 +79,7 @@ if __name__ == "__main__":
     username_text = Text(root, height = 1, width = 20)
     username_text.insert(END, first_username)
 
-    username_label = Label(root, text = f"Connected as: {first_username}")
+    username_label = Label(root, text = f"Connected as: ")
     username_label.config(font =("Courier", 14))
 
     # Labels for the text areas.

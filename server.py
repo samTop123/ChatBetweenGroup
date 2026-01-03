@@ -8,16 +8,18 @@ from threading import Thread
 def create_server() -> socket.socket:
     return socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-def handle_client(client_socket: ssl.SSLSocket, other_client_socket: ssl.SSLSocket) -> None:
+def handle_client(clients_socket: list[ssl.SSLSocket], other_client_socket: ssl.SSLSocket) -> None:
     while True:
         try:
-            msg = client_socket.recv(constants.BUFFER_SIZE)
+            msg = other_client_socket.recv(constants.BUFFER_SIZE)
             if msg == b"[quit]":
-                client_socket.shutdown(socket.SHUT_RDWR)
-                client_socket.close()
+                other_client_socket.shutdown(socket.SHUT_RDWR)
+                other_client_socket.close()
                 break
             if msg:
-                other_client_socket.send(msg)
+                for client_socket in clients_socket:
+                    if client_socket != other_client_socket:
+                        client_socket.send(msg)
         except Exception as e:
             print(f"The connection was lost : {e} !")
             break
@@ -35,6 +37,9 @@ def secure_server_socket(server_socket : socket.socket) -> ssl.SSLSocket:
     return secured_server
 
 if __name__ == "__main__":
+    users = []
+    threads = []
+
     server = create_server()
 
     server.bind((constants.IP, constants.PORT))
@@ -43,29 +48,25 @@ if __name__ == "__main__":
 
     server.listen(constants.MAX_CONNECTIONS)
     secured_server = secure_server_socket(server)
-    conn1, addr1 = secured_server.accept()
 
-    print("User 1 : ")
-    print(addr1)
+    while len(users) < constants.MAX_CONNECTIONS:
+        conn, addr = secured_server.accept()
 
-    conn1.send("User 1".encode("utf-8"))
+        print(f"User {len(users)+1} : ")
+        print(addr)
 
-    conn1.recv(constants.BUFFER_SIZE)  # Wait for user 1 to be ready
+        conn.send(f"User {len(users)+1}".encode("utf-8"))
 
-    conn2, addr2 = secured_server.accept()
-
-    print("User 2 : ")
-    print(addr2)
-
-    conn2.send("User 2".encode("utf-8"))
-
-    conn2.recv(constants.BUFFER_SIZE)  # Wait for user 2 to be ready
+        conn.recv(constants.BUFFER_SIZE)  # Wait for user to be ready
+        users.append(conn)
 
     try:
-        thread1 = Thread(target=handle_client, args=(conn1, conn2))
-        thread2 = Thread(target=handle_client, args=(conn2, conn1))
+        for user in users:
+            thread = Thread(target=handle_client, args=(users, user))
+            thread.start()
+            threads.append(thread)
 
-        thread1.start()
-        thread2.start()
+        for thread in threads:
+            thread.join()
     except:
         print("The connection was lost !")
