@@ -18,8 +18,8 @@ def handle_client(client_socket: ssl.SSLSocket, other_client_socket: ssl.SSLSock
                 break
             if msg:
                 other_client_socket.send(msg)
-        except:
-            print("The connection was lost !")
+        except Exception as e:
+            print(f"The connection was lost : {e} !")
             break
 
 def secure_server_socket(server_socket : socket.socket) -> ssl.SSLSocket:
@@ -48,14 +48,18 @@ if __name__ == "__main__":
     print("User 1 : ")
     print(addr1)
 
-    conn1.send("Hello User 1".encode("utf-8"))
+    conn1.send("User 1".encode("utf-8"))
+
+    conn1.recv(constants.BUFFER_SIZE)  # Wait for user 1 to be ready
 
     conn2, addr2 = secured_server.accept()
 
     print("User 2 : ")
     print(addr2)
 
-    conn2.send("Hello User 2".encode("utf-8"))
+    conn2.send("User 2".encode("utf-8"))
+
+    conn2.recv(constants.BUFFER_SIZE)  # Wait for user 2 to be ready
 
     try:
         thread1 = Thread(target=handle_client, args=(conn1, conn2))
