@@ -18,7 +18,7 @@ def create_subject() -> x509.Name:
 
     return subject
 
-def create_prive_key() -> rsa.RSAPrivateKey:
+def create_private_key() -> rsa.RSAPrivateKey:
     private_key = rsa.generate_private_key(
         public_exponent=info_for_signature.PUBLIC_EXPONENT,
         key_size=info_for_signature.KEY_SIZE
@@ -45,7 +45,7 @@ def create_certificate(subject : x509.Name, issuer : x509.Name, private_key : rs
     return cert
 
 def create_key_and_certificate() -> None:
-    private_key = create_prive_key()
+    private_key = create_private_key()
 
     public_key = private_key.public_key()
 
@@ -60,14 +60,6 @@ def create_key_and_certificate() -> None:
             )
         )
 
-    with open(info_for_signature.SERVER_KEY_NAME_PUBLIC, "wb") as f:
-        f.write(
-            public_key.public_bytes(
-                encoding=serialization.Encoding.PEM,
-                format=serialization.PublicFormat.SubjectPublicKeyInfo,
-            )
-        )
-
     cert = create_certificate(subject, issuer, private_key, public_key)
 
     with open(info_for_signature.SERVER_CERT_NAME, "wb") as file:
@@ -75,5 +67,4 @@ def create_key_and_certificate() -> None:
 
 def files_are_init() -> bool:
     return (info_for_signature.SERVER_CERT_NAME in os.listdir() 
-            and info_for_signature.SERVER_KEY_NAME_PUBLIC in os.listdir()
             and info_for_signature.SERVER_KEY_NAME_PRIVATE in os.listdir())
