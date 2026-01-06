@@ -60,7 +60,7 @@ class Server:
                 print(f"The connection was lost : {e} !")
                 break
 
-    def secure_server_socket(self,server_socket : socket.socket) -> ssl.SSLSocket:
+    def secure_server_socket(self, server_socket : socket.socket) -> ssl.SSLSocket:
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     
         if not generating_key.files_are_init():
