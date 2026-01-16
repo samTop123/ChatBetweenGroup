@@ -2,71 +2,58 @@ import tkinter as tk
 from tkinter import Tk, Text, Label, Button, END, NORMAL, DISABLED
 from tkinter.scrolledtext import ScrolledText
 import info_for_signature
-import client
+from client import Client
 import constants
 import socket
 import threading
 import sys
 import ssl
 
-def end_program(root : Tk, client : ssl.SSLSocket) -> None:
-    client.send("[quit]".encode("utf-8"))
-    root.destroy()
-    client.close()
-    sys.exit()
+class ClientApp(object):
+    def __init__(self, root: Tk, client_socket: ssl.SSLSocket):
+        self.root = root
+        self.client_socket = client_socket
 
-def send_message(client_name : str, client_used : ssl.SSLSocket) -> None:
-    message = writing_text.get("1.0", END).strip().replace("\n", "")
+    def end_program(self) -> None:
+        self.client_socket.send("[quit]".encode("utf-8"))
+        self.root.destroy()
+        self.client_socket.close()
+        sys.exit()
 
-    if message:
-        message = f"{client_name}:{message}"
-        client_used.send(message.encode("utf-8"))
-        append_text(f"{message}\n")
-        writing_text.delete("1.0", END)
+    def send_message(self, client_name : str, writing_text : Text, reading_text : Text) -> None:
+        message = writing_text.get("1.0", END).strip().replace("\n", "")
 
-def append_text(text : str) -> None:
-    reading_text.config(state=NORMAL)
-    reading_text.insert(END, text)
-    reading_text.config(state=DISABLED)
+        if message:
+            message = f"{client_name}:{message}"
+            self.client_socket.send(message.encode("utf-8"))
+            self.append_text(reading_text, f"{message}\n")
+            writing_text.delete("1.0", END)
 
-def get_message(client : ssl.SSLSocket) -> None:
-    while True:
-        try:
-            msg = client.recv(constants.BUFFER_SIZE).decode("utf-8")
-            if msg:
-                username_other, message = msg.split(":", 1)  # split at first colon only
-                root.after(0, append_text, f"{username_other}:{message}\n")
-        except Exception as e:
-            print(f"The connection was lost : {e} !")
-            break
+    def append_text(self, reading_text : Text, text : str) -> None:
+        reading_text.config(state=NORMAL)
+        reading_text.insert(END, text)
+        reading_text.config(state=DISABLED)
 
-def initialize_message_area(client_used : ssl.SSLSocket) -> None:
-    messages_thread = threading.Thread(target=get_message, args=(client_used,), daemon=True)
-    messages_thread.start()
+    def get_message(self, reading_text : Text) -> None:
+        while True:
+            try:
+                msg = self.client_socket.recv(constants.BUFFER_SIZE).decode("utf-8")
+                if msg:
+                    username_other, message = msg.split(":", 1)  # split at first colon only
+                    self.root.after(0, self.append_text, reading_text, f"{username_other}:{message}\n")
+            except Exception as e:
+                print(f"The connection was lost : {e} !")
+                break
 
-def secure_client_socket(socket_client : socket.socket) -> ssl.SSLSocket:
-    context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-    context.load_verify_locations(info_for_signature.SERVER_CERT_NAME)
-
-    secured_client = context.wrap_socket(socket_client, server_hostname=constants.SERVER_HOST_NAME)
-
-    return secured_client
+    def initialize_message_area(self, reading_text : Text) -> None:
+        messages_thread = threading.Thread(target=self.get_message, args=(reading_text, ), daemon=True)
+        messages_thread.start()
 
 def reset_username(username_text_widget : Text, first_username : str) -> None:
     username_text_widget.delete("1.0", END)
     username_text_widget.insert(END, first_username)
 
-if __name__ == "__main__":
-    client_used = client.create_client()
-    client_secured_used = secure_client_socket(client_used)
-    client_secured_used.connect((constants.IP, constants.PORT))
-    client_secured_used.send(b"[ready]")
-
-    # Displaying the cipher information - (algorithm used for symmetric encryption, TLS version, Key length - in bits)
-    print(client_secured_used.cipher())
-
-    root = Tk()
-
+def initialize_app(root : Tk, client_app : ClientApp) -> tuple[Text, ScrolledText, Text]:
     # specify size of window.
     root.geometry("800x500")
 
@@ -89,9 +76,9 @@ if __name__ == "__main__":
     reading_label = Label(root, text = "Reading Area : ")
     reading_label.config(font =("Courier", 14))
 
-    send_button = Button(root, text = "Send", command= lambda: send_message(username_text.get("1.0", END).strip().replace("\n", ""), client_secured_used))
+    send_button = Button(root, text = "Send", command= lambda: client_app.send_message(username_text.get("1.0", END).strip().replace("\n", ""), writing_text, reading_text))
 
-    exit_button = Button(root, text = "Exit", command = lambda: end_program(root, client_secured_used))
+    exit_button = Button(root, text = "Exit", command = lambda: client_app.end_program())
 
     reset_username_button = Button(root, text = "Reset Username", command = lambda: reset_username(username_text, first_username))
 
@@ -108,6 +95,22 @@ if __name__ == "__main__":
     send_button.pack()
     exit_button.pack()
 
-    initialize_message_area(client_secured_used)
+    return (writing_text, reading_text, username_text)
+
+if __name__ == "__main__":
+    client_used = Client.create_client()
+    client_secured_used = Client.secure_client_socket(client_used)
+    client_secured_used.connect((constants.IP, constants.PORT))
+    client_secured_used.send(b"[ready]")
+
+    # Displaying the cipher information - (algorithm used for symmetric encryption, TLS version, Key length - in bits)
+    print(client_secured_used.cipher())
+
+    root = Tk()
+    client_app = ClientApp(root, client_secured_used)
+
+    writing_text, reading_text, username_text = initialize_app(root, client_app)
+
+    client_app.initialize_message_area(reading_text)
 
     tk.mainloop()

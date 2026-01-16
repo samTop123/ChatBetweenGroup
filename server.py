@@ -1,11 +1,11 @@
 import ssl
 import socket
 import constants
-import generating_key
+from generating_key import KeyAndCertificateValidator
 import info_for_signature
 from threading import Thread
 
-class Server:
+class Server(object):
     def __init__(self, host: str, port: int):
         self.host = host
         self.port = port
@@ -45,26 +45,46 @@ class Server:
             thread.join()
 
     def handle_client(self, clients_socket: list[ssl.SSLSocket], other_client_socket: ssl.SSLSocket) -> None:
-        while True:
-            try:
-                msg = other_client_socket.recv(constants.BUFFER_SIZE)
-                if msg == b"[quit]":
-                    other_client_socket.shutdown(socket.SHUT_RDWR)
-                    other_client_socket.close()
+        try:
+            while True:
+                data = other_client_socket.recv(constants.BUFFER_SIZE)
+
+                # Client disconnected cleanly
+                if not data:
                     break
-                if msg:
-                    for client_socket in clients_socket:
-                        if client_socket != other_client_socket:
-                            client_socket.send(msg)
-            except Exception as e:
-                print(f"The connection was lost : {e} !")
-                break
+
+                msg = data.decode("utf-8")
+
+                # Client requested to quit
+                if msg == "[quit]":
+                    break
+
+                # Broadcast ONLY to other clients
+                for client in clients_socket:
+                    if client is not other_client_socket:
+                        try:
+                            client.send(data)
+                        except Exception:
+                            # Ignore failures of other clients
+                            pass
+
+        except Exception as e:
+            print(f"Client error: {e}")
+
+        finally:
+            # Remove ONLY this client
+            if other_client_socket in clients_socket:
+                clients_socket.remove(other_client_socket)
+            try:
+                other_client_socket.close()
+            except:
+                pass
 
     def secure_server_socket(self, server_socket : socket.socket) -> ssl.SSLSocket:
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     
-        if not generating_key.files_are_init():
-            generating_key.create_key_and_certificate()
+        if not KeyAndCertificateValidator.files_are_init():
+            KeyAndCertificateValidator.create_key_and_certificate()
 
         context.load_cert_chain(certfile=info_for_signature.SERVER_CERT_NAME, keyfile=info_for_signature.SERVER_KEY_NAME_PRIVATE)
 
